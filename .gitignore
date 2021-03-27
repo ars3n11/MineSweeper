@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#Stuff
+.vs/
+Debug/
+x64/
+Win32/
+.DS_Store
+Release/
+!*msvcrt.lib
