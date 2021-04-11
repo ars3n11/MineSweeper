@@ -14,9 +14,9 @@ int wmain_custom()
 	// parse command line arguments
 	argv = CommandLineToArgvW(commandLine, &argc);
 
-	if (!processCommandLineParams(argc, argv))
-		printUsageInfo();
-		
+	if (!processCommandLineParams(argc, argv)) {
+		return 1;
+	}
 
 	return 0;
 }
@@ -34,61 +34,107 @@ BOOL processCommandLineParams(int argc, wchar_t* argv[]) {
 	// code sample from here https://stackoverflow.com/questions/12689142/win32-api-command-line-arguments-parsing
 	for (int i = 1; i < argc; i++) {
 		
-		if (*argv[i] == L'/') {
+		if (*argv[i] == L'-') {
 			// pointer to the wchar after '/'
 			key = argv[i] + 1;
-			value = wcschr(key, ':');
+			value = key + 1;
 			
-			if (value != NULL) 
-				// set ':' to NULL and increment the pointer by one (so we skip the NULL byte we just updated)
-				*value++ = 0;
-
-			if (*key == LIST_MODE)
+			// make sure there is i+1 before attempting to read it 
+			if (i + 1 < argc) {
+				if (*argv[i + 1] != L'-') {
+					i++;
+					value = argv[i];
+				}
+				else {
+					value == NULL;
+				}
+			}
+			else {
+				value == NULL;
+			}
+			
+			if (*key == L'h' || *key == L'H') {
+				printUsageInfo();
+				return TRUE;
+			}
+			else if (*key == LIST_MODE) {
 				mode = LIST_MODE;
-			else if (*key == SWEEP_MODE)
+			}			
+			else if (*key == SWEEP_MODE) {
 				mode = SWEEP_MODE;
-			else if (*key == UNHOOK_MODE)
+			}				
+			else if (*key == UNHOOK_MODE) {
 				mode = UNHOOK_MODE;
-			else if (*key == REHOOK_MODE)
+			}				
+			else if (*key == REHOOK_MODE) {
 				mode = REHOOK_MODE;
+			}				
 			// parse the target parameter
 			else if (*key == L't') {
-				if (value != NULL)
+				if (value != NULL){
 					pid = wcstoul(value, NULL, 10);
+					if (pid == NULL) {
+						printf("[!] Invalid input: -t flag parameter must be an integer!.\n");
+						error = TRUE;
+					}
+				}				
 				else {
-					printf("[!] Error: /t flag is missing a value.\n");
+					printf("[!] Error: -t flag is missing a value.\n");
 					error = TRUE;
 				}
 
 			}
 			// parse the hook donor param
 			else if (*key == L'd') {
-				if (value != NULL)
+				if (value != NULL) {
 					pidHookDonor = wcstoul(value, NULL, 10);
+					if (pidHookDonor == NULL) {
+						printf("[!] Invalid input: -d flag parameter must be an integer!.\n");
+						error = TRUE;
+					}
+				}
 				else {
-					printf("[!] Error: /d flag is missing a value.\n");
+					printf("[!] Error: -d flag is missing a value.\n");
 					error = TRUE;
 				}
 
 			}
 			// parse target module
-			else if (*key == L'm')
-				if (value != NULL)
+			else if (*key == L'm') {
+				if (value != NULL) {
 					moduleName = value;
+				}
 				else {
+					printf("[!] Error: -m requires a module name!\n");
 					error = TRUE;
 				}
+			}
 			// if cautious mode 
-			else if (*key == CAUTIOUS_MODE)
+			else if (*key == CAUTIOUS_MODE){
 				cautiousMode = TRUE;
+			}
 			// verbose mode
-			else if (*key == L'v')
+			else if (*key == L'v') {
 				beVerbose = TRUE;
+			}				
+			else {
+				printf("[!] Invalid input: %ls\n", argv[i]);
+			}
+		}
+		else {
+			printf("[!] Invalid input: %ls\n", argv[i]);
+			error = TRUE;
 		}
 	}
 
-	if (mode == NULL || error == TRUE) {
-		printf("[!] Invalid input\n\n");
+	if (mode == NULL && error == FALSE) {
+		printf("[!] Mode not selected.\n");
+		error = TRUE;
+		
+	}
+
+	if (error) {
+		printf("[!] Use -h for help.\n");
 		return FALSE;
 	}
 
@@ -160,7 +206,7 @@ BOOL processCommandLineParams(int argc, wchar_t* argv[]) {
 
 		case REHOOK_MODE:
 
-			printf("[*] Mode: Re=hook Mode\n");
+			printf("[*] Mode: Re-hook Mode\n");
 
 			// pid and hook donor pid are not allowed to match
 			if (pid == pidHookDonor) {
@@ -199,30 +245,31 @@ Print out the usage info
 */
 void printUsageInfo() {
 	printf("MineSweeper by @ars3n11\n");
-	printf("Usage:\tMineSweeper.exe\t [/c] [/l | /s | /u  | /r] [/t targetPID]\n\t\t\t[/m moduleNameStringMatch] [/d hookDonorPID]\n");
+	printf("Usage:\tMineSweeper.exe\t [-c] [-l | -s | -u  | -r] [-t targetPID]\n\t\t\t[-m moduleNameStringMatch] [-d hookDonorPID]\n");
 	printf("Modes available:\n");
-	printf("\t/l\tList Mode - List loaded modules by the target PID (/t).\n\t\tModule name filter (/m) is available.\n");
-	printf("\t/s\tSweep Mode - Sweep target PID (/t) for any user-land hooks.\n\t\tModule name filter (/m) is available.\n");
-	printf("\t/u\tUnhook Mode - Sweep and unhook target PID (/t) from any user-land hooks.\n\t\tModule name filter (/m) is available.\n");
-	printf("\t/r\tRe-hook Mode - Sweep hook donor PID (/d) for user-land hooks.\n\t\tIf any hooks found - copy them over to our target PID (/t).\n\t\tModule name filter (/m) is available.\n");
+	printf("\t-l\tList Mode - List loaded modules by the target PID (-t).\n\t\tModule name filter (-m) is available.\n");
+	printf("\t-s\tSweep Mode - Sweep target PID (-t) for any user-land hooks.\n\t\tModule name filter (-m) is available.\n");
+	printf("\t-u\tUnhook Mode - Sweep and unhook target PID (-t) from any user-land hooks.\n\t\tModule name filter (-m) is available.\n");
+	printf("\t-r\tRe-hook Mode - Sweep hook donor PID (-d) for user-land hooks.\n\t\tIf any hooks found - copy them over to our target PID (-t).\n\t\tModule name filter (-m) is available.\n");
 	
 	printf("Safety modes:\n");
-	printf("\t/c\tCautious Mode - Unhook the local process before proceeding with\n\t\tone of the choosen main modes.\n");
+	printf("\t-c\tCautious Mode - Unhook the local process before proceeding with\n\t\tone of the choosen main modes.\n");
 
 	printf("Options:\n");
-	printf("\t/t:1234\tTarget PID. If not provided - target local process\n");
-	printf("\t/d:1234\tHook donor PID (i.e.: the process that will be used to copy hooks FROM).\n\t\tIf not provided - set local process as the hook donor\n");
-	printf("\t/m:module.dll\tFilter string to be applied to the loaded module canonical path\n\t\t(e.g: \\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll).\n\t\tIf not provided - target all modules (same as \"/m:.dll\"\n");
-	printf("\t/v\tVerbose flag. Prints modified RVAs for each hooked function\n");
+	printf("\t-t 1234\tTarget PID. If not provided - target local process.\n");
+	printf("\t-d 1234\tHook donor PID (i.e.: the process that will be used to copy hooks FROM).\n\t\tIf not provided - set local process as the hook donor.\n");
+	printf("\t-m module.dll\tFilter string to be applied to the loaded module canonical path\n\t\t(e.g: \\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll).\n\t\tIf not provided - target all modules (same as \"-m .dll\".\n");
+	printf("\t-v\tVerbose flag. Prints modified RVAs for each hooked function.\n");
 
 	printf("Examples:\n");
-	printf("MineSweeper.exe: /l /t:5476\tList loaded modules by PID 5476\n");
-	printf("MineSweeper.exe: /s\t\tSweep local process for user-land hooks\n");
-	printf("MineSweeper.exe: /u /t:5476\tUnhook PID 5476 from all user-land hooks\n");
-	printf("MineSweeper.exe: /c /u /t:5476\tUnhook PID 5476 from all user-land hooks. Run in Cautious mode\n");
-	printf("MineSweeper.exe: /u /t:5476 /m:ntdll.dll Unhook PID 5476 from any hooks found in tne ntdll.dll module\n");
-	printf("MineSweeper.exe: /r /t:5476 /d:8156\tSweep PID 8156 for user-land hooks and copy over any discovered\n\t\t\t\t\thooks into the matching modules in the PID 5476.\n");
-	printf("MineSweeper.exe: /c /r /t:5476 /d:8156\tSame as above but run in Cautious mode.\n");
+	printf("MineSweeper.exe: -l -t 5476\tList loaded modules in PID 5476.\n");
+	printf("MineSweeper.exe: -s\t\tSweep local process for user-land hooks.\n");
+	printf("MineSweeper.exe: -s -v\t\tSame as above but also print but also print modified RVAs for each hooked function.\n");
+	printf("MineSweeper.exe: -u -t 5476\tUnhook PID 5476 from all user-land hooks.\n");
+	printf("MineSweeper.exe: -c -u -t 5476\tUnhook PID 5476 from all user-land hooks. Run in Cautious mode.\n");
+	printf("MineSweeper.exe: -u -t 5476 -m ntdll.dll Unhook PID 5476 from any hooks found in tne ntdll.dll module.\n");
+	printf("MineSweeper.exe: -r -t 5476 -d 8156\tSweep PID 8156 for user-land hooks and copy over any discovered\n\t\t\t\t\thooks into the matching modules in the PID 5476.\n");
+	printf("MineSweeper.exe: -c -r -t 5476 -d 8156\tSame as above but run in Cautious mode.\n");
 
 }
 
