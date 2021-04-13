@@ -148,7 +148,7 @@ BOOL processCommandLineParams(int argc, wchar_t* argv[]) {
 		}
 	}
 
-	// let's invoke a desired funtion
+	// let's invoke a desired function
 	switch (mode){
 		case LIST_MODE:
 			
@@ -245,31 +245,33 @@ Print out the usage info
 */
 void printUsageInfo() {
 	printf("MineSweeper by @ars3n11\n");
-	printf("Usage:\tMineSweeper.exe\t [-c] [-l | -s | -u  | -r] [-t targetPID]\n\t\t\t[-m moduleNameStringMatch] [-d hookDonorPID]\n");
+	printf("Usage:\tMineSweeper.exe\t [-c] [-l | -s | -u  | -r] [-t targetPID] [-v]\n\t\t\t[-m moduleNameStringMatch] [-d hookDonorPID]\n");
 	printf("Modes available:\n");
-	printf("\t-l\tList Mode - List loaded modules by the target PID (-t).\n\t\tModule name filter (-m) is available.\n");
+	printf("\t-l\tList Mode - List loaded modules by the target process (-t).\n\t\tModule name filter (-m) is available.\n");
 	printf("\t-s\tSweep Mode - Sweep target PID (-t) for any user-land hooks.\n\t\tModule name filter (-m) is available.\n");
 	printf("\t-u\tUnhook Mode - Sweep and unhook target PID (-t) from any user-land hooks.\n\t\tModule name filter (-m) is available.\n");
 	printf("\t-r\tRe-hook Mode - Sweep hook donor PID (-d) for user-land hooks.\n\t\tIf any hooks found - copy them over to our target PID (-t).\n\t\tModule name filter (-m) is available.\n");
 	
 	printf("Safety modes:\n");
-	printf("\t-c\tCautious Mode - Unhook the local process before proceeding with\n\t\tone of the choosen main modes.\n");
+	printf("\t-c\tCautious Mode - Unhook the local process before proceeding with\n\t\tone of the chosen main modes.\n");
 
 	printf("Options:\n");
-	printf("\t-t 1234\tTarget PID. If not provided - target local process.\n");
-	printf("\t-d 1234\tHook donor PID (i.e.: the process that will be used to copy hooks FROM).\n\t\tIf not provided - set local process as the hook donor.\n");
-	printf("\t-m module.dll\tFilter string to be applied to the loaded module canonical path\n\t\t(e.g: \\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll).\n\t\tIf not provided - target all modules (same as \"-m .dll\".\n");
-	printf("\t-v\tVerbose flag. Prints modified RVAs for each hooked function.\n");
+	printf("\t-t\tTarget PID. Will target the local process if not provided.\n");
+	printf("\t-d\tHook donor PID (i.e.: the process that will be used to copy hooks FROM).\n\t\tWill set the local process as the hooks donor if not provided.\n");
+	printf("\t-m\tFilter string to be applied to the loaded module canonical path\n\t\t(e.g: \\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll).\n\t\tWill target all modules (same as \"-m .dll\") if not provided.\n");
+	printf("\t-v\tVerbose flag. Prints modified RVAs and their byte-to-byte comparison for each hooked function.\n");
 
 	printf("Examples:\n");
+	printf("MineSweeper.exe: -l \t\tList loaded modules in MineSweeper's own process.\n");
 	printf("MineSweeper.exe: -l -t 5476\tList loaded modules in PID 5476.\n");
-	printf("MineSweeper.exe: -s\t\tSweep local process for user-land hooks.\n");
-	printf("MineSweeper.exe: -s -v\t\tSame as above but also print but also print modified RVAs for each hooked function.\n");
+	printf("MineSweeper.exe: -s\t\tSweep MineSweeper's local process for user-land hooks.\n");
+	printf("MineSweeper.exe: -s -v\t\tSame as above but also print modified RVAs for each hooked function.\n");
+	printf("MineSweeper.exe: -s -t 5476\tSweep PID 5476 for user-land hooks.\n");
 	printf("MineSweeper.exe: -u -t 5476\tUnhook PID 5476 from all user-land hooks.\n");
-	printf("MineSweeper.exe: -c -u -t 5476\tUnhook PID 5476 from all user-land hooks. Run in Cautious mode.\n");
-	printf("MineSweeper.exe: -u -t 5476 -m ntdll.dll Unhook PID 5476 from any hooks found in tne ntdll.dll module.\n");
+	printf("MineSweeper.exe: -c -u -t 5476\tUnhook PID 5476 from all user-land hooks. Run in Cautious mode (unhook \n\t\t\t\tMineSweeper's own process before trying to unhook PID 5476).\n");
+	printf("MineSweeper.exe: -u -t 5476 -m ntdll.dll\tUnhook PID 5476 from any hooks found in the ntdll.dll module.\n");
 	printf("MineSweeper.exe: -r -t 5476 -d 8156\tSweep PID 8156 for user-land hooks and copy over any discovered\n\t\t\t\t\thooks into the matching modules in the PID 5476.\n");
-	printf("MineSweeper.exe: -c -r -t 5476 -d 8156\tSame as above but run in Cautious mode.\n");
+	printf("MineSweeper.exe: -c -r -t 5476 -d 8156\tSame as above but run in Cautious mode (unhook MineSweeper's \n\t\t\t\t\town process before doing anything else).\n");
 
 }
 
@@ -282,7 +284,7 @@ BOOL installTestHooks(DWORD pid) {
 	HANDLE hTarget = NULL;
 
 
-	// get PID handle - check wether we are targetting a local or remote process 
+	// get PID handle - check whether we are targeting a local or remote process 
 	if (pid == NULL) {
 		hTarget = GetCurrentProcess();	}
 	else {

@@ -8,10 +8,10 @@
 #define filePathLength 200 // max fully qualified path for the file name of the target DLL
 #define UNHOOK 0
 #define REHOOK 1
-#define LIST_MODE L'l' // list target proceess modules
-#define SWEEP_MODE L's' // sweep targeet process for hooks
+#define LIST_MODE L'l' // list target process modules
+#define SWEEP_MODE L's' // sweep target process for hooks
 #define UNHOOK_MODE L'u' // unhook target process
-#define REHOOK_MODE L'r' // rehook target process with hooks from donor
+#define REHOOK_MODE L'r' // re-hook target process with hooks from donor
 #define CAUTIOUS_MODE L'c' // unhook our own process before executing any other command
 
 
@@ -21,7 +21,7 @@ typedef struct modifiredRVAListNodeStruct {
 	struct modifiredRVAListNodeStruct* next;
 }modifiedRVAListNode;
 
-// a struct to keep a list of hookend functions names, EAT / EOT ordinals and their RVAs
+// a struct to keep a list of hooked functions names, EAT / EOT ordinals and their RVAs
 typedef struct hookedFunctionStruct {
 	char* functionName; // pointers to the Export Name Pointer Table
 	WORD eotOrdinal; // unbiased function ordinal 

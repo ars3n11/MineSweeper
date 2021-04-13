@@ -83,7 +83,7 @@ DWORD_PTR readRemoteModule(HMODULE hModule, HANDLE hProcess) {
 // retrieves target module file path
 wchar_t* getModuleFilePath(HMODULE hModule, HANDLE hProcess) {
 	PWSTR tempFileName[filePathLength] = { 0 }; // create a temporary PWSTR to be used with file name retrieval
-	DWORD fileNameLength; // to be used with file name retrievel
+	DWORD fileNameLength; // to be used with file name retrieval
 	wchar_t* filePath = NULL;
 
 	// if process handle is NULL, let's get a handle to our local process
@@ -114,7 +114,7 @@ wchar_t* getModuleFilePath(HMODULE hModule, HANDLE hProcess) {
 	//if (GetModuleFileNameExW(hProcess, hModule, filePath, filePathLength) == 0 || GetLastError() != 0) {
 	if (GetMappedFileNameW(hProcess, hModule, filePath, filePathLength) == 0 || GetLastError() != 0) {
 #if _DEBUG
-		printf("[!] Error retrieving module file name on the second atttempt. Module handle: %#X\n", hModule);
+		printf("[!] Error retrieving module file name on the second attempt. Module handle: %#X\n", hModule);
 #endif
 		free(filePath);
 		return NULL;
@@ -125,7 +125,7 @@ wchar_t* getModuleFilePath(HMODULE hModule, HANDLE hProcess) {
 }
 
 /*
-A function to check wether more than 1% of the .text section has been detected to be overwritten. Returns TRUE if more than 1% of the .text section have been modified.
+A function to check whether more than 1% of the .text section has been detected to be overwritten. Returns TRUE if more than 1% of the .text section have been modified.
 1% was picked based on real-world AV observations.
 This function was created to accommodate for an edge case scenario where large parts of .text section of the module happens to be overwritten. While the reason for this phenomenon is uknown it did happened a few times during my testing.
 */
@@ -167,7 +167,7 @@ mineSweeperModuleInfo* initializeMineSweeperModuleInfo(HMODULE hModule, HANDLE h
 		return NULL;
 	}
 
-	// extracting the module name out of the module path. the arithmetrics below is in order to avoid the last backslash. We add 2 instead of 1 because this is a wide string.
+	// extracting the module name out of the module path. the arithmetics below is in order to avoid the last backslash. We add 2 instead of 1 because this is a wide string.
 	targetModule->moduleName = (DWORD_PTR)wcsrchr(targetModule->filePath, L'\\') + 2;
 
 	// check whether we are targeting a local or remote process module
@@ -180,7 +180,7 @@ mineSweeperModuleInfo* initializeMineSweeperModuleInfo(HMODULE hModule, HANDLE h
 			
 			// in case ReadProcessMemory received error 299 (ERROR_PARTIAL_COPY) 
 			if (targetModule->moduleBase == 1) {
-				printf("[!] %#X (%ls): the module is commited into memory only partially, we have to skip it.\n", targetModule->hModule, targetModule->moduleName);
+				printf("[!] %#X (%ls): the module is committed into memory only partially, we have to skip it.\n", targetModule->hModule, targetModule->moduleName);
 			}
 			
 			free(targetModule);
@@ -193,7 +193,7 @@ mineSweeperModuleInfo* initializeMineSweeperModuleInfo(HMODULE hModule, HANDLE h
 	}
 
 
-	// check for MZ signature at the start of the module, mind little endianess
+	// check for MZ signature at the start of the module, mind little endianness
 	WORD* mz = targetModule->moduleBase;
 	if (*mz != 0x5A4D){
 #if _DEBUG
@@ -242,7 +242,7 @@ DWORD buildHookedFunctionsArray(mineSweeperModuleInfo* targetModule) {
 	DWORD RVAsCount = targetModule->modifiedRVAsLength; 
 	DWORD_PTR moduleBase = targetModule->moduleBase;
 	
-	// if no modifired RVAs are present there is nothing to work on
+	// if no modified RVAs are present there is nothing to work on
 	if (targetModule->modifiedRVAsLength < 1)
 		return uniqueFuncCounter;
 
@@ -274,7 +274,7 @@ DWORD buildHookedFunctionsArray(mineSweeperModuleInfo* targetModule) {
 
 	// now let's populate our hookedFunctions array
 	for (DWORD i = 0, currentRVAArrayIndex = 0; i < uniqueFuncCounter; i++) {
-		// asign eat ordianl value to our hooked function 		
+		// assign eat ordinal value to our hooked function 		
 		targetModule->hookedFunctions[i].eatOrdinal = tempRVAtoEatMapping[currentRVAArrayIndex];
 
 		// increase tempCounter by one since we just assigned the current EAT value
@@ -418,7 +418,7 @@ BOOL sweepModule(mineSweeperModuleInfo* targetModule) {
 			// if head element of the list hasn't been initialized yet - let's make the current our head
 			if (head == NULL)
 				head = current;
-			// if the list has been initiazed already - let's update the previous element's "next" pointer with our current element
+			// if the list has been initialized already - let's update the previous element's "next" pointer with our current element
 			else
 				prev->next = current;
 			// calculating modified byte as an RVA relative to the image base: text_section_start + memcmpResult - base address
@@ -432,7 +432,7 @@ BOOL sweepModule(mineSweeperModuleInfo* targetModule) {
 		}
 	}
 
-	// update modifiedRVAsLength value for tbe target mineSweeperModuleInfo sttruct
+	// update modifiedRVAsLength value for the target mineSweeperModuleInfo struct
 	targetModule->modifiedRVAsLength = getModifiedRVAListLength(head);
 
 	// if we have modified RVAs, let's initialize our modifiedRVAs array
@@ -440,7 +440,7 @@ BOOL sweepModule(mineSweeperModuleInfo* targetModule) {
 		targetModule->modifiedRVAs = (PDWORD)malloc(sizeof(DWORD) * targetModule->modifiedRVAsLength);
 
 		//transfer the list elements to an array
-		// if moveModifiedRVAListToArray returns false - we hit an array overlfow and something must be wrong - return false
+		// if moveModifiedRVAListToArray returns false - we hit an array overflow and something must be wrong - return false
 		if (!moveModifiedRVAListToArray(head, targetModule->modifiedRVAs, targetModule->modifiedRVAsLength)) {
 			cleanModifiedRVAList(head);
 			return FALSE;
@@ -471,7 +471,7 @@ BOOL sweepModule(mineSweeperModuleInfo* targetModule) {
 
 // populates hookedRVAValues and unhookedRVAValues arrays
 // we store hooked RVA values just in case we want to re-hook the module later on
-// returns FALSE in case pre-requisites are not avalailable
+// returns FALSE in case prerequisites are not available
 BOOL populateHookedAndUnhookedRVAValues(mineSweeperModuleInfo* targetModule) {
 	if (targetModule->modifiedRVAsLength < 1 || targetModule->moduleBase == NULL || targetModule->hTargetDllOnDiskMappingAddress == NULL)
 		return FALSE;
@@ -499,7 +499,7 @@ BOOL populateHookedAndUnhookedRVAValues(mineSweeperModuleInfo* targetModule) {
 	return TRUE;
 }
 
-// Empties ModifiedRVAList by freeing each memeber
+// Empties ModifiedRVAList by freeing each member
 void cleanModifiedRVAList(modifiedRVAListNode* head) {
 	modifiedRVAListNode* current = head, * next = current;
 	while (next != NULL) {
@@ -607,10 +607,10 @@ PIMAGE_SECTION_HEADER getTextSection(HMODULE module) {
 	//DOS header = module base
 	PIMAGE_DOS_HEADER pDOSHeader = module;
 
-	// get the NT header - i took PBYTE cast inspriation from here https://stackoverflow.com/questions/2273603/getting-ordinal-from-function-name-programmatically
+	// get the NT header - i took PBYTE cast inspiration from here https://stackoverflow.com/questions/2273603/getting-ordinal-from-function-name-programmatically
 	PIMAGE_NT_HEADERS ntHeader = (PBYTE)module + pDOSHeader->e_lfanew;
 
-	// check if we get a valide PE signature (PE\0\0)
+	// check if we get a valid PE signature (PE\0\0)
 	if (ntHeader->Signature != IMAGE_NT_SIGNATURE)
 		return NULL;
 
@@ -641,7 +641,7 @@ PIMAGE_SECTION_HEADER getTextSection(HMODULE module) {
 }
 
 /*
-CUstom memcmp function that will compare two buffers and return an index value of the first mismatch identfied.
+CUstom memcmp function that will compare two buffers and return an index value of the first mismatch identified.
 Returns -1 if the buffers are identical
 size_t start value can specify the comparison start offset (used by the sweepModule function)
 */
@@ -680,7 +680,7 @@ Returns -1 in a case all RVAs in the EAT are past the target byte memory address
 */
 int findClosestEAT_RVA(DWORD_PTR targetByte, DWORD_PTR moduleBase, PDWORD eat, size_t eat_length) {
 	int ordinal = -1;
-	// a variable to hold currrent difference between the closest EAT function and our target byte. This will be considered the smalles difference currently found
+	// a variable to hold current difference between the closest EAT function and our target byte. This will be considered the smallest difference currently found
 	// using long long to avoid variable overflow since DWORD_PTR is unsigned long
 	long long currentDifference = NULL;
 	long long tempDifference = NULL;
@@ -690,7 +690,7 @@ int findClosestEAT_RVA(DWORD_PTR targetByte, DWORD_PTR moduleBase, PDWORD eat, s
 		// find the difference between current eat function memory address and our target byte in the .text section
 		tempDifference = targetByte - (moduleBase + eat[i]);
 
-		// if function RVA + module base are greater than our targete byte - skip since the function appears in the .text secttion after our targeet byte
+		// if function RVA + module base are greater than our target byte - skip since the function appears in the .text section after our target byte
 		if (tempDifference < 0)
 			continue;
 
@@ -909,7 +909,7 @@ BOOL getProcessModules(HANDLE hProcess, HMODULE** modules, DWORD* modulesLength)
 	*modulesLength = tempModulesLength;
 	
 	// Now, let's actually get our target modules
-	// Notice second condition in the if statemnt below - we want to make sure that tempModulesLength > *modulesLength is FALSE so we don't miss any modules
+	// Notice second condition in the if statement below - we want to make sure that tempModulesLength > *modulesLength is FALSE so we don't miss any modules
 	if (!EnumProcessModulesEx(hProcess, *modules, *modulesLength, &tempModulesLength, LIST_MODULES_ALL) || tempModulesLength > *modulesLength) {
 #if _DEBUG
 		printf("[!] Failed to EnumProcessModulesEx for the second time - module count must have changed just now!\n");
@@ -1038,7 +1038,7 @@ BOOL findModuleHandleByFilePath(HANDLE hProcess, HMODULE* modules, DWORD modules
 /*
 Takes PID (NULL for local process) and the module name (e.g.: "ntdll", "kernel32.dll" or just ".dll" if you want to target every loaded DLL) to sweep them for user-land hooks and unhook any module that found to be hooked.
 If moduleName is NULL, sweep and unhook all DLL's
-The function will handle mutliple modules if they match the moduleName string or if there are multiple modules with the same name (e.g.: WOW64 and x64 NTDLL).
+The function will handle multiple modules if they match the moduleName string or if there are multiple modules with the same name (e.g.: WOW64 and x64 NTDLL).
 Returns FALSE in case of any error.
 */
 BOOL unhookProcessModules(DWORD pid, wchar_t* moduleName) {
@@ -1056,7 +1056,7 @@ BOOL unhookProcessModules(DWORD pid, wchar_t* moduleName) {
 	}
 
 
-	// get PID handle - check if we targetting local or remote process here
+	// get PID handle - check if we targeting local or remote process here
 	if (pid == NULL) {
 		hProcess = GetCurrentProcess();
 		pid = currentPID;
@@ -1154,7 +1154,7 @@ BOOL unhookProcessModules(DWORD pid, wchar_t* moduleName) {
 					printf("[*] Unhooking %ls succeeded!\n\n", targetModule->moduleName);
 			}
 			else {
-				printf("[!] %#X (%ls): unsually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
+				printf("[!] %#X (%ls): usually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
 			}
 		}
 		// cleanUp mineSweeperModuleInfo
@@ -1205,7 +1205,7 @@ BOOL rehookProcessModules(DWORD pid, wchar_t* moduleName, DWORD hookedPID) {
 	}
 		
 
-	// get PID handle - check wether we are targetting a local or a remote process 
+	// get PID handle - check whether we are targeting a local or a remote process 
 	if (pid == NULL) {
 		hProcess = GetCurrentProcess();
 		pid = currentPID;
@@ -1376,7 +1376,7 @@ BOOL rehookProcessModules(DWORD pid, wchar_t* moduleName, DWORD hookedPID) {
 
 					printf("[*] Re-hooking %ls in PID %d..\n", targetModule->moduleName, pid);
 
-					// cheap trick: substituing hookedPID handle with the pid one - to avoid initializing another mineSweeperModuleInfo struct
+					// cheap trick: substituting hookedPID handle with the pid one - to avoid initializing another mineSweeperModuleInfo struct
 					tempProcessHandle = targetModule->hProcess;
 					targetModule->hProcess = hProcess;
 
@@ -1395,7 +1395,7 @@ BOOL rehookProcessModules(DWORD pid, wchar_t* moduleName, DWORD hookedPID) {
 				}
 			}
 			else {
-				printf("[!] %#X (%ls): unsually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
+				printf("[!] %#X (%ls): usually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
 			}
 			
 
@@ -1421,7 +1421,7 @@ BOOL rehookProcessModules(DWORD pid, wchar_t* moduleName, DWORD hookedPID) {
 }
 
 /*
-Searches array of module handles (moduleArray of moduleArrayLength) for existance of a specified module handle (targetModule)
+Searches array of module handles (moduleArray of moduleArrayLength) for existence of a specified module handle (targetModule)
 */
 BOOL containsModuleHandle(HMODULE targetModule, HMODULE* moduleArray, DWORD moduleArrayLength) {
 	
@@ -1436,7 +1436,7 @@ BOOL containsModuleHandle(HMODULE targetModule, HMODULE* moduleArray, DWORD modu
 /*
 Takes PID (NULL for local process) and the module name (e.g.: "ntdll", "kernel32.dll" or even just ".dll" if you want to check all loaded DLLs) to sweep them for user-land hooks.
 If moduleName is NULL, sweep all .dll
-The function will handle mutliple modules if they match the moduleName string or if there are multiple modules with the same name (e.g.: WOW64 and x64 NTDLL).
+The function will handle multiple modules if they match the moduleName string or if there are multiple modules with the same name (e.g.: WOW64 and x64 NTDLL).
 Returns FALSE in case of any error.
 */
 BOOL sweepProcessModules(DWORD pid, wchar_t* moduleName) {
@@ -1457,7 +1457,7 @@ BOOL sweepProcessModules(DWORD pid, wchar_t* moduleName) {
 
 
 
-	// get PID handle - check if we targetting local or remote process here
+	// get PID handle - check if we targeting local or remote process here
 	if (pid == NULL) {
 		hProcess = GetCurrentProcess();
 		pid = currentPID;
@@ -1555,7 +1555,7 @@ BOOL sweepProcessModules(DWORD pid, wchar_t* moduleName) {
 				printf("\n");			
 			}
 			else {
-				printf("[!] %#X (%ls): unsually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
+				printf("[!] %#X (%ls): unusually large .text section overwrite detected, the module was skipped. Bytes modified: %d \n", matchedModulesArray[i], targetModule->moduleName, targetModule->modifiedRVAsLength);
 			}
 			
 		}	
@@ -1597,7 +1597,7 @@ BOOL listProcessModules(DWORD pid, wchar_t* moduleName) {
 	if (pid < 0 || (pid % 4 != 0))
 		return FALSE;
 
-	// get PID handle - check if we targetting local or remote process here
+	// get PID handle - check if we targeting local or remote process here
 	if (pid == NULL) {
 		hProcess = GetCurrentProcess();
 		pid = currentPID;
@@ -1709,7 +1709,7 @@ BOOL unhookOrRehookModule(mineSweeperModuleInfo* targetModule, BYTE mode) {
 	// number of bytes we need to modify from the start of our address
 	SIZE_T numberOfBytes = targetModule->modifiedRVAs[targetModule->modifiedRVAsLength - 1] - targetModule->modifiedRVAs[0];
 
-	// change memory persmissions to allow us to write into the target's process memory space
+	// change memory permissions to allow us to write into the target's process memory space
 	if (!VirtualProtectEx(targetModule->hProcess, start, numberOfBytes, newProtect, &oldProtect)) {
 #if _DEBUG
 		printf("[!] VirtualProtectEx failed!%d\n");
@@ -1819,44 +1819,3 @@ BOOL isConsecutiveRVAs(hookedFunction* function, PDWORD modifiedRVAs) {
 
 	return TRUE;
 }
-
-// unused functions make if planning to use, include the header below
-//#include <Stringapiset.h> // for UTF16 to UTF8 conversation
-
-//LPVOID findFunctionOffset(mineSweeperModuleInfo* targetModule, wchar_t* functionName) {
-//	
-//	// convert to utf8 string in order to call GetProcAddress which accepts only ASCI
-//	char* utf8FunctionName = utf16toUtf8(functionName);
-//
-//	// get target function memory address
-//	FARPROC pFunction = GetProcAddress(targetModule->hModule, utf8FunctionName);
-//	
-//	// calculate the function offset from the module's base address
-//	LPVOID functionOffset = (unsigned int)pFunction - (unsigned int)targetModule->moduleBaseAddress;
-//
-//#if _DEBUG
-//	printf("Address of %ls: %#X\n", functionName, &pFunction);
-//	printf("Offset: %#X", functionOffset);
-//#endif
-//
-//	// free the utf8 string that we created with malloc
-//	free(utf8FunctionName);
-//
-//	return functionOffset;
-//}
-//
-
-//// CAUTION: make sure to free the utf8Sttring memory after calling this function
-//char* utf16toUtf8(wchar_t* utf16String) {
-//	// get the required size of the resulting utf8 string
-//	int size = WideCharToMultiByte(CP_UTF8, 0, utf16String, -1, NULL, 0, 0, NULL);
-//	
-//	// allocate memory for our utf8 string
-//	char * utf8String = malloc(size * sizeof(char));
-//
-//	// convert utf16 string to utf8 and write the result into our allocated memory
-//	WideCharToMultiByte(CP_UTF8, 0, utf16String, -1, utf8String, size, 0, NULL);
-//
-//	return utf8String;
-//}
-
