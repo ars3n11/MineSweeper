@@ -60,17 +60,9 @@ MineSweeper.exe: -c -r -t 5476 -d 8156  Same as above but run in Cautious mode (
                                         own process before doing anything else).
 ```
 
-## Dependencies
-
-> TLDR: nothing to worry about, you can clone the repo and go straight to [compiling](#Compiling).
-
-- Imports a total of 26 functions from `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
-- Links to `msvcrt.dll` to avoid Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency.
-- `shell32.dll` is only required for `CommandLineToArgvW` function and should be easy to [re-implement](https://doxygen.reactos.org/da/da5/shell32__main_8c_source.html).
-
 ## Cross-architecture
 
-x64 version of MineSweeper can enumerate and manipulate both x64 and x86 processes. This only applies to x64 processes since a call to `EnumProcessModulesEx` function from an x86 process will return x86 module handles only.
+x64 version of MineSweeper can enumerate and manipulate both x64 and x86 processes. This only applies to the x64 version since a call to `EnumProcessModulesEx` function from an x86 process will return x86 module handles only.
 
 Cross-architecture support:
 |     | x86 | x64 |
@@ -78,6 +70,14 @@ Cross-architecture support:
 | **x86** | Yes | No  |
 | **x64** | Yes | Yes |
 
+
+## Dependencies
+
+> TLDR: nothing to worry about, you can clone the repo and go straight to [compiling](#Compiling).
+
+- Imports a total of 26 functions from `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
+- Links to `msvcrt.dll` to avoid Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency.
+- `shell32.dll` is only required for `CommandLineToArgvW` function and should be easy to [re-implement](https://doxygen.reactos.org/da/da5/shell32__main_8c_source.html).
 
 ### Linking to `msvcrt.dll`
 
@@ -117,6 +117,33 @@ There are several use cases where MineSweeper will not be able to sweep a specif
 - A DLL without a `.text` section (e.g.: `FileSync.Resources.dll` and `FileSync.LocalizedResources.dll` loaded by `OneDrive.exe`).
 - Non-consecutively committed PE sections. The only example I have observed during my testing was `kernel32.dll` in a x86 process running on a x64 system where. The committed memory regions had reserved memory regions in between them preventing `ReadProcessMemory` function from reading the target module all at once.
 - Modules with large chunks of `.text` section being overwritten. In my testing I have come across several instances where random parts of a module's `.text` section were overwritten resulting in a false positive. I was not able to explain this behavior since it was sporadic and affected different modules each time. Normally, a hooked module would have less than 1% of its `.text` section modified so that is what MineSweeper is checking for to avoid this condition.
+
+## How it Works
+
+Below is a high-level overview of the unhooking (`-u` flag) workflow which also invokes module enumeration (`-l` flag) and sweeping for hooks (`-s` flag) functions. 
+
+1. Enumerate target process modules via `EnumProcessModulesEx` function.
+1. Identify modules of interest by their file name / path.
+1. [If targeting a remote process] Copy over the remote process module to our local process using `ReadProcessMemory`.
+1. Map view of file of the module of interest on disk using `CreateFileMapping` (`PAGE_READONLY | SEC_IMAGE_NO_EXECUTE`) and `MapViewOfFile`
+1. Byte-to-byte comparison of the `.text` section of the dll saved on disk against the dll module loaded by the target process in memory. During this process, MineSweeper takes a note of the original values currently present in the dll on disk as well as the modified values identified in memory.
+1. [For the `-l` flag only] Cross-reference `.text` section differences to specific function ordinals in the PE EAT (portable executable export address table).
+1. Modify remote process target module memory permissions to `PAGE_EXECUTE_READWRITE` using `VirtualProtectEx` in order to overwrite the hooks.
+1. Overwrite the hooks in the target module using `WriteProcessMemory` for a remote process or simply dereferencing the memory pointer for a local process (in order to avoid `WriteProcessMemory` call).
+1. Modify the memory permissions back to the original ones using `VirtualProtectEx`.
+
+## Red Team Operational Security Considerations
+
+MineSweeper currently possesses very limited set of evasion techniques. The primary goal of the project was to do required heavy-lifting for hook detection across as many DLLs as possible on a modern Windows system.
+
+Nonetheless, in my testing it was working fine (enumerating hooks and unhooking remote process modules) on systems with cutting-edge enterprise EDRs. This was true so long the MineSweeper's Cautious mode (`-c` flag) was on.
+
+Below is a short list of MineSweeper's opsec features:
+
+- The Cautious mode (`-c` flag) will unhook MineSweeper's own process first before attempting to manipulate a remote process.
+- Creating on-disk file mapping is done with `PAGE_READONLY | SEC_IMAGE_NO_EXECUTE` permissions in order "to avoid triggering multiple image load events". Shout out to [@slaeryan](https://twitter.com/slaeryan) for the [tip](https://twitter.com/slaeryan/status/1336959057232449536).
+- Overwriting local process hooks is done by memory address pointer dereference to avoid calling `WriteProcessMemory` function.
+
 
 ## Demo
 See Vimeo link here.
