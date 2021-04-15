@@ -86,6 +86,8 @@ For convenience, I included the `msvcrt.lib` files in this project already so yo
 
 ## Compiling
 
+Download compiled binaries [here](https://github.com/ars3n11/MineSweeper/releases/). 
+
 Since opening 3rd party Visual Studio project files is _mauvais ton_ these days, I'm providing command line compilation instructions below. The VS project files are also included in the repo, so that's always an option too.
 
 ### Compiling in CLI
