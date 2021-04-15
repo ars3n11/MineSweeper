@@ -14,8 +14,8 @@ Windows user-land hooks manipulation tool.
 - Cross-architecture support for the x64 variant.
 - Cautious mode: can unhook itself first before manipulating remote processes (`-c` flag)
 - Can target either all loaded modules within the target process or only those containing a specified string in their path (`-m` flag)
-- Lightweight: x64 and x86 binaries are only 16KB and 14KB respectively.
-- No Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency. MineSweeper dynamically links to the following core (present on every modern Windows distribution) libraries: `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
+- Lightweight: x64 and x86 binaries are only 18KB and 17KB respectively.
+- No Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency. MineSweeper dynamically links to the following Windows core libraries present on every modern distribution: `msvcrt.dll` and `kernel32.dll`.
 
 ## Command Line Reference
 
@@ -75,9 +75,8 @@ Cross-architecture support:
 
 > TLDR: nothing to worry about, you can clone the repo and go straight to [compiling](#Compiling).
 
-- Imports a total of 26 functions from `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
+- Imports a total of 28 functions from `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
 - Links to `msvcrt.dll` to avoid Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency.
-- `shell32.dll` is only required for `CommandLineToArgvW` function and should be easy to [re-implement](https://doxygen.reactos.org/da/da5/shell32__main_8c_source.html).
 
 ### Linking to `msvcrt.dll`
 
@@ -100,14 +99,14 @@ cl.exe /GS- /GL /W4 /O1 /nologo /Zl /Os /Oi /c /D "_UNICODE" /D "UNICODE" MineSw
 Step 2: Link - x64:
 
 ```
-link.exe /LTCG /ENTRY:"wmain_custom" /OPT:REF /SAFESEH:NO /SUBSYSTEM:CONSOLE /NODEFAULTLIB /MACHINE:X64 /OUT:"MineSweeper_cmd_compiled.exe" MineSweeper.obj MineSweeperCore.obj  libs\msvcrt\x64\msvcrt.lib kernel32.lib Onecore.lib
+link.exe /LTCG /ENTRY:"wmain_custom" /OPT:REF /SAFESEH:NO /SUBSYSTEM:CONSOLE /NODEFAULTLIB /MACHINE:X64 /OUT:"MineSweeper_cmd_compiled.exe" MineSweeper.obj MineSweeperCore.obj  libs\msvcrt\x64\msvcrt.lib kernel32.lib
 ```
 OR
 
 Step 2: Link - x86:
 
 ```
-link.exe /LTCG /ENTRY:"wmain_custom" /OPT:REF /SAFESEH:NO /SUBSYSTEM:CONSOLE /NODEFAULTLIB /MACHINE:x86 /OUT:"MineSweeper_cmd_compiled.exe" MineSweeper.obj MineSweeperCore.obj libs\msvcrt\x86\msvcrt.lib kernel32.lib Onecore.lib
+link.exe /LTCG /ENTRY:"wmain_custom" /OPT:REF /SAFESEH:NO /SUBSYSTEM:CONSOLE /NODEFAULTLIB /MACHINE:x86 /OUT:"MineSweeper_cmd_compiled.exe" MineSweeper.obj MineSweeperCore.obj libs\msvcrt\x86\msvcrt.lib kernel32.lib
 ```
 
 ## Exceptions
@@ -132,7 +131,7 @@ Below is a high-level overview of the unhooking (`-u` flag) workflow which also 
 1. Overwrite the hooks in the target module using `WriteProcessMemory` for a remote process or simply dereferencing the memory pointer for a local process (in order to avoid `WriteProcessMemory` call).
 1. Modify the memory permissions back to the original ones using `VirtualProtectEx`.
 
-## Red Team Operational Security Considerations
+## OpSec Considerations
 
 MineSweeper currently possesses very limited set of evasion techniques. The primary goal of the project was to do required heavy-lifting for hook detection across as many DLLs as possible on a modern Windows system.
 
@@ -145,5 +144,16 @@ Below is a short list of MineSweeper's opsec features:
 - Overwriting local process hooks is done by memory address pointer dereference to avoid calling `WriteProcessMemory` function.
 
 
+## Use Cases
+
+While this project was initially conceived as a learning opportunity for Windows API, C and PE format, there are a couple opportunities for a practical application of the project:
+
+- For Blue Team to test their tooling and telemetry against various user-land unhooking techniques.
+- For Red Team for situational awareness on a target system.
+
+## Troubleshooting
+
+- If a target process crashes after unhooking or re-hooking, try enabling Cautious mode (`-c` flag). 
+
 ## Demo
-See Vimeo link here.
+![MineSweeper Demo](https://user-images.githubusercontent.com/41267859/114948584-47285d80-9e1d-11eb-8d47-b3e5c7aedd4c.gif)
