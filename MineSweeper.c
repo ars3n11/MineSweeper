@@ -12,7 +12,7 @@ int wmain_custom()
 	// since we don't rely on Visual Studio CRT to pass us the command line parameters, we have to get those ourselves
 	commandLine = GetCommandLineW();
 	// parse command line arguments
-	argv = CommandLineToArgvW(commandLine, &argc);
+	argv = ReactOSCommandLineToArgvW(commandLine, &argc);
 
 	if (!processCommandLineParams(argc, argv)) {
 		return 1;
@@ -34,10 +34,12 @@ BOOL processCommandLineParams(int argc, wchar_t* argv[]) {
 	// code sample from here https://stackoverflow.com/questions/12689142/win32-api-command-line-arguments-parsing
 	for (int i = 1; i < argc; i++) {
 		
+		// set value to NULL
+		value = NULL;
+
 		if (*argv[i] == L'-') {
 			// pointer to the wchar after '/'
 			key = argv[i] + 1;
-			value = key + 1;
 			
 			// make sure there is i+1 before attempting to read it 
 			if (i + 1 < argc) {
@@ -59,15 +61,39 @@ BOOL processCommandLineParams(int argc, wchar_t* argv[]) {
 			}
 			else if (*key == LIST_MODE) {
 				mode = LIST_MODE;
+
+				// we want to avoid passing a value with mode flag since we have -t for specifying target PID
+				if (value != NULL) {
+					error = TRUE;
+					printf("[!] Error: -l does not take parameters. Use -t to specify the target PID.\n");
+				}
 			}			
 			else if (*key == SWEEP_MODE) {
 				mode = SWEEP_MODE;
+
+				// we want to avoid passing a value with mode flag since we have -t for specifying target PID
+				if (value != NULL) {
+					error = TRUE;
+					printf("[!] Error: -s does not take parameters. Use -t to specify the target PID.\n");
+				}
+
 			}				
 			else if (*key == UNHOOK_MODE) {
 				mode = UNHOOK_MODE;
+				// we want to avoid passing a value with mode flag since we have -t for specifying target PID
+				if (value != NULL) {
+					error = TRUE;
+					printf("[!] Error: -u does not take parameters. Use -t to specify the target PID.\n");
+				}
 			}				
 			else if (*key == REHOOK_MODE) {
 				mode = REHOOK_MODE;
+				// we want to avoid passing a value with mode flag since we have -t for specifying target PID
+				if (value != NULL) {
+					error = TRUE;
+					printf("[!] Error: -r does not take parameters. Use -t to specify the target PID.\n");
+				}
+
 			}				
 			// parse the target parameter
 			else if (*key == L't') {
@@ -273,6 +299,243 @@ void printUsageInfo() {
 	printf("MineSweeper.exe: -r -t 5476 -d 8156\tSweep PID 8156 for user-land hooks and copy over any discovered\n\t\t\t\t\thooks into the matching modules in the PID 5476.\n");
 	printf("MineSweeper.exe: -c -r -t 5476 -d 8156\tSame as above but run in Cautious mode (unhook MineSweeper's \n\t\t\t\t\town process before doing anything else).\n");
 
+}
+
+/*
+Re-implementing  CommandLineToArgvW in order to avoid importing the Shell32.dll
+Source: https://doxygen.reactos.org/da/da5/shell32__main_8c_source.html
+*/
+LPWSTR* WINAPI ReactOSCommandLineToArgvW(LPCWSTR lpCmdline, int* numargs)
+{
+	DWORD argc;
+	LPWSTR* argv;
+	LPCWSTR s;
+	LPWSTR d;
+	LPWSTR cmdline;
+	int qcount, bcount;
+
+	if (!numargs)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		return NULL;
+	}
+
+	if (*lpCmdline == 0)
+	{
+		/* Return the path to the executable */
+		DWORD len, deslen = MAX_PATH, size;
+
+		size = sizeof(LPWSTR) * 2 + deslen * sizeof(WCHAR);
+		for (;;)
+		{
+			if (!(argv = LocalAlloc(LMEM_FIXED, size))) return NULL;
+			len = GetModuleFileNameW(0, (LPWSTR)(argv + 2), deslen);
+			if (!len)
+			{
+				LocalFree(argv);
+				return NULL;
+			}
+			if (len < deslen) break;
+			deslen *= 2;
+			size = sizeof(LPWSTR) * 2 + deslen * sizeof(WCHAR);
+			LocalFree(argv);
+		}
+		argv[0] = (LPWSTR)(argv + 2);
+		argv[1] = NULL;
+		*numargs = 1;
+
+		return argv;
+	}
+
+	/* --- First count the arguments */
+	argc = 1;
+	s = lpCmdline;
+	/* The first argument, the executable path, follows special rules */
+	if (*s == '"')
+	{
+		/* The executable path ends at the next quote, no matter what */
+		s++;
+		while (*s)
+			if (*s++ == '"')
+				break;
+	}
+	else
+	{
+		/* The executable path ends at the next space, no matter what */
+		while (*s && *s != ' ' && *s != '\t')
+			s++;
+	}
+	/* skip to the first argument, if any */
+	while (*s == ' ' || *s == '\t')
+		s++;
+	if (*s)
+		argc++;
+
+	/* Analyze the remaining arguments */
+	qcount = bcount = 0;
+	while (*s)
+	{
+		if ((*s == ' ' || *s == '\t') && qcount == 0)
+		{
+			/* skip to the next argument and count it if any */
+			while (*s == ' ' || *s == '\t')
+				s++;
+			if (*s)
+				argc++;
+			bcount = 0;
+		}
+		else if (*s == '\\')
+		{
+			/* '\', count them */
+			bcount++;
+			s++;
+		}
+		else if (*s == '"')
+		{
+			/* '"' */
+			if ((bcount & 1) == 0)
+				qcount++; /* unescaped '"' */
+			s++;
+			bcount = 0;
+			/* consecutive quotes, see comment in copying code below */
+			while (*s == '"')
+			{
+				qcount++;
+				s++;
+			}
+			qcount = qcount % 3;
+			if (qcount == 2)
+				qcount = 0;
+		}
+		else
+		{
+			/* a regular character */
+			bcount = 0;
+			s++;
+		}
+	}
+
+	/* Allocate in a single lump, the string array, and the strings that go
+	 * with it. This way the caller can make a single LocalFree() call to free
+	 * both, as per MSDN.
+	 */
+	argv = LocalAlloc(LMEM_FIXED, (argc + 1) * sizeof(LPWSTR) + (wcslen(lpCmdline) + 1) * sizeof(WCHAR));
+	if (!argv)
+		return NULL;
+	cmdline = (LPWSTR)(argv + argc + 1);
+	wcscpy(cmdline, lpCmdline);
+
+	/* --- Then split and copy the arguments */
+	argv[0] = d = cmdline;
+	argc = 1;
+	/* The first argument, the executable path, follows special rules */
+	if (*d == '"')
+	{
+		/* The executable path ends at the next quote, no matter what */
+		s = d + 1;
+		while (*s)
+		{
+			if (*s == '"')
+			{
+				s++;
+				break;
+			}
+			*d++ = *s++;
+		}
+	}
+	else
+	{
+		/* The executable path ends at the next space, no matter what */
+		while (*d && *d != ' ' && *d != '\t')
+			d++;
+		s = d;
+		if (*s)
+			s++;
+	}
+	/* close the executable path */
+	*d++ = 0;
+	/* skip to the first argument and initialize it if any */
+	while (*s == ' ' || *s == '\t')
+		s++;
+	if (!*s)
+	{
+		/* There are no parameters so we are all done */
+		argv[argc] = NULL;
+		*numargs = argc;
+		return argv;
+	}
+
+	/* Split and copy the remaining arguments */
+	argv[argc++] = d;
+	qcount = bcount = 0;
+	while (*s)
+	{
+		if ((*s == ' ' || *s == '\t') && qcount == 0)
+		{
+			/* close the argument */
+			*d++ = 0;
+			bcount = 0;
+
+			/* skip to the next one and initialize it if any */
+			do {
+				s++;
+			} while (*s == ' ' || *s == '\t');
+			if (*s)
+				argv[argc++] = d;
+		}
+		else if (*s == '\\')
+		{
+			*d++ = *s++;
+			bcount++;
+		}
+		else if (*s == '"')
+		{
+			if ((bcount & 1) == 0)
+			{
+				/* Preceded by an even number of '\', this is half that
+				 * number of '\', plus a quote which we erase.
+				 */
+				d -= bcount / 2;
+				qcount++;
+			}
+			else
+			{
+				/* Preceded by an odd number of '\', this is half that
+				 * number of '\' followed by a '"'
+				 */
+				d = d - bcount / 2 - 1;
+				*d++ = '"';
+			}
+			s++;
+			bcount = 0;
+			/* Now count the number of consecutive quotes. Note that qcount
+			 * already takes into account the opening quote if any, as well as
+			 * the quote that lead us here.
+			 */
+			while (*s == '"')
+			{
+				if (++qcount == 3)
+				{
+					*d++ = '"';
+					qcount = 0;
+				}
+				s++;
+			}
+			if (qcount == 2)
+				qcount = 0;
+		}
+		else
+		{
+			/* a regular character */
+			*d++ = *s++;
+			bcount = 0;
+		}
+	}
+	*d = '\0';
+	argv[argc] = NULL;
+	*numargs = argc;
+
+	return argv;
 }
 
 /*Debug only: simple function to install some "test hooks" at some random spots in ntdll.dll*/
