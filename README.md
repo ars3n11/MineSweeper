@@ -75,7 +75,7 @@ Cross-architecture support:
 
 > TLDR: nothing to worry about, you can clone the repo and go straight to [compiling](#Compiling).
 
-- Imports a total of 28 functions from `msvcrt.dll`, `kernel32.dll` and `shell32.dll`.
+- Imports a total of 28 functions from `msvcrt.dll` and `kernel32.dll`.
 - Links to `msvcrt.dll` to avoid Visual C++ Redistributable Packages (`vcruntime140.dll`) dependency.
 
 ### Linking to `msvcrt.dll`
