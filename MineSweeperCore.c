@@ -425,6 +425,7 @@ BOOL sweepModule(mineSweeperModuleInfo* targetModule) {
 			current->rva = inMemoryTextSection + memcmpResult - targetModule->moduleBase;
 			current->next = NULL;
 			prev = current;
+			memcmpResult++;
 		}
 		else {
 			// if the rest is identical - break
@@ -655,19 +656,12 @@ int memcmpCustom(const void* s1, const void* s2, size_t n, size_t start) {
 		return -1;
 	}
 
-	// if start is 0 - set i to 0, if start is not 0, then i = start + 1
-	if (start == 0) {
-		for (size_t i = 0; i < n; i++) {
-			if (array1[i] != array2[i])
-				return i;
-		}
+
+	for (size_t i = start; i < n; i++) {
+		if (array1[i] != array2[i])
+			return i;
 	}
-	else {
-		for (size_t i = start + 1; i < n; i++) {
-			if (array1[i] != array2[i])
-				return i;
-		}
-	}
+	
 
 	return -1;
 
